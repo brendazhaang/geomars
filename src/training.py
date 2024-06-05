@@ -51,7 +51,7 @@ test_loader = torch.utils.data.DataLoader(
 model = MarsModel(hyper_params)
 
 trainer = pl.Trainer(
-    gpus=1, max_epochs=hyper_params["num_epochs"], checkpoint_callback=checkpoint
+    accelerator="gpu", max_epochs=hyper_params["num_epochs"], callbacks=[checkpoint]
 )
-trainer.fit(model, train_dataloader=train_loader, val_dataloaders=val_loader)
+trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 trainer.test(test_dataloaders=test_loader)

@@ -11,7 +11,8 @@ from torchvision.models import (
 )
 import pytorch_lightning as pl
 from torch.nn import functional as F
-from torchmetrics.functional import accuracy, precision, recall
+from torchmetrics.functional import accuracy, precision
+from torchmetrics.functional.classification import multiclass_recall
 
 
 class MarsModel(pl.LightningModule):
@@ -21,6 +22,8 @@ class MarsModel(pl.LightningModule):
         self.optimizer = hyper_param["optimizer"]
         self.lr = hyper_param["learning_rate"]
         self.num_classes = hyper_param["num_classes"]
+        self.validation_step_outputs = []
+        #self.validation_step_targets = []
 
         if hyper_param["model"] == "resnet18":
             """
@@ -110,10 +113,12 @@ class MarsModel(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
-        acc = accuracy(torch.argmax(y_hat, dim=1), y, num_classes=self.num_classes)
-        prec = precision(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes)
-        recall = recall(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes)
+        acc = accuracy(torch.argmax(y_hat, dim=1), y, num_classes=self.num_classes, task="multiclass")
+        prec = precision(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes, task="multiclass")
+        recall = multiclass_recall(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes)
 
+        self.validation_step_outputs.append(loss)
+        self.validation_step_outputs.append(acc)
         return {
             "val_loss": loss,
             "val_acc": acc,
@@ -121,14 +126,24 @@ class MarsModel(pl.LightningModule):
             "val_recall": recall,
         }
 
-    def validation_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        avg_acc = torch.stack([x["val_acc"] for x in outputs]).mean()
+    #def validation_epoch_end(self, outputs):
+       # avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
+       # avg_acc = torch.stack([x["val_acc"] for x in outputs]).mean()
+       # return {
+        #    "val_loss": avg_loss,
+        #    "progress_bar": {"val_loss": avg_loss, "val_acc": avg_acc},
+       # }
+    
+    def on_validation_epoch_end(self):
+        avg_loss = torch.stack([x["val_loss"] for x in self.validation_step_outputs]).mean()
+        avg_acc = torch.stack([x["val_acc"] for x in self.validation_step_targets]).mean()
+        self.validation_step_outputs.clear()
+        #self.validation_step_targets.clear()
         return {
             "val_loss": avg_loss,
             "progress_bar": {"val_loss": avg_loss, "val_acc": avg_acc},
         }
-
+       
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
