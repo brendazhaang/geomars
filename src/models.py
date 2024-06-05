@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import pytorch_lightning as pl
 from torchvision.models import (
     alexnet,
     vgg16_bn,
@@ -10,8 +9,9 @@ from torchvision.models import (
     densenet121,
     densenet161,
 )
+import pytorch_lightning as pl
 from torch.nn import functional as F
-from pytorch_lightning.metrics.functional import accuracy, precision_recall
+from torchmetrics.functional import accuracy, precision, recall
 
 
 class MarsModel(pl.LightningModule):
@@ -111,9 +111,9 @@ class MarsModel(pl.LightningModule):
         y_hat = self(x)
         loss = F.cross_entropy(y_hat, y)
         acc = accuracy(torch.argmax(y_hat, dim=1), y, num_classes=self.num_classes)
-        prec, recall = precision_recall(
-            F.softmax(y_hat, dim=1), y, num_classes=self.num_classes, reduction="none"
-        )
+        prec = precision(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes)
+        recall = recall(F.softmax(y_hat, dim=1), y, average='none', num_classes=self.num_classes)
+
         return {
             "val_loss": loss,
             "val_acc": acc,
